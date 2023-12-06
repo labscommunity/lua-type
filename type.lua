@@ -3,7 +3,10 @@ local Type = {
   conditions = nil
 }
 
-function Type:add_condition(name, assertion)
+-- Add a custom condition/assertion to assert for
+---@param name string Name of the assertion
+---@param assertion fun(val: any): boolean Custom assertion function that is asserted with the provided value
+function Type:custom(name, assertion)
   -- condition to add
   local condition = {
     name = name,
@@ -30,7 +33,7 @@ end
 -- Add an assertion for built in types
 ---@param t "nil"|"number"|"string"|"boolean"|"table"|"function"|"thread"|"userdata" Type to assert for
 function Type:type(t)
-  return self:add_condition(t, function (val) return type(val) == t end)
+  return self:custom(t, function (val) return type(val) == t end)
 end
 
 -- Type must be userdata
@@ -46,6 +49,57 @@ end
 -- Type must be table
 function Type:table()
   return self:type("table")
+end
+
+-- Table's keys must be of type t
+---@param t Type Type to assert for
+function Type:keys(t)
+  return self:custom(
+    "keys",
+    function (val)
+      if type(val) ~= "table" then
+        print("Not a valid table:\n" .. tostring(val))
+        return false
+      end
+
+      for key, _ in pairs(val) do
+        -- check if the assertion throws any errors
+        local success, err = pcall(function () return t:assert(key) end)
+
+        if not success then
+          print(err);
+          return false
+        end
+      end
+
+      return true
+    end
+  )
+end
+
+-- Table's values must be of type t
+function Type:values(t)
+  return self:custom(
+    "values",
+    function (val)
+      if type(val) ~= "table" then
+        print("Not a valid table:\n" .. tostring(val))
+        return false
+      end
+
+      for _, v in pairs(val) do
+        -- check if the assertion throws any errors
+        local success, err = pcall(function () return t:assert(v) end)
+
+        if not success then
+          print(err);
+          return false
+        end
+      end
+
+      return true
+    end
+  )
 end
 
 -- Type must be boolean
@@ -66,7 +120,7 @@ end
 -- Value must be the same
 ---@param val any The value the assertion must be made with
 function Type:is(val)
-  return self:add_condition("is", function (v) return v == val end)
+  return self:custom("is", function (v) return v == val end)
 end
 
 -- Type must be string
@@ -75,7 +129,7 @@ function Type:string()
 end
 
 function Type:match(pattern)
-  return self:add_condition(
+  return self:custom(
     "match",
     function (val) return string.match(val, pattern) ~= nil end
   )
@@ -88,29 +142,29 @@ end
 
 -- Number must be an integer (chain after "number()")
 function Type:integer()
-  return self:add_condition("integer", function (val) return val % 1 == 0 end)
+  return self:custom("integer", function (val) return val % 1 == 0 end)
 end
 
 -- Number must be even (chain after "number()")
 function Type:even()
-  return self:add_condition("even", function (val) return val % 2 == 0 end)
+  return self:custom("even", function (val) return val % 2 == 0 end)
 end
 
 -- Number must be odd (chain after "number()")
 function Type:odd()
-  return self:add_condition("odd", function (val) return val % 2 == 1 end)
+  return self:custom("odd", function (val) return val % 2 == 1 end)
 end
 
 -- Number must be less than the number "n" (chain after "number()")
 ---@param n number Number to compare with
 function Type:less_than(n)
-  return self:add_condition("less", function (val) return val < n end)
+  return self:custom("less", function (val) return val < n end)
 end
 
 -- Number must be greater than the number "n" (chain after "number()")
 ---@param n number Number to compare with
 function Type:greater_than(n)
-  return self:add_condition("less", function (val) return val > n end)
+  return self:custom("less", function (val) return val > n end)
 end
 
 -- Table must be of structure
@@ -122,7 +176,7 @@ function Type:structure(struct, name, strict)
     error(name .. " is not a valid structure:\n" .. tostring(struct))
   end
 
-  return self:add_condition(
+  return self:custom(
     name or "structure",
     function (val)
       if type(val) ~= "table" then

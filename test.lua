@@ -23,3 +23,8 @@ user:assert({
     twitter = "martonlederer"
   }
 })
+
+local table1 = { "test", "haha", "test" }
+local tabl_assert = Type:keys(Type:number()):values(Type:string())
+
+tabl_assert:assert(table1)
