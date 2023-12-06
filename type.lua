@@ -149,10 +149,30 @@ function Type:string()
   return self:type("string")
 end
 
+-- String type must match pattern
+---@param pattern string Pattern to match
 function Type:match(pattern)
   return self:custom(
     "match",
     function (val) return string.match(val, pattern) ~= nil end
+  )
+end
+
+-- String type must be of defined length
+---@param len number Required length
+---@param match_type? "less"|"greater" String length should be "less" than or "greater" than the defined length. Leave empty for exact match.
+function Type:length(len, match_type)
+  return self:custom(
+    "length",
+    function (val)
+      local strlen = string.len(val)
+
+      -- validate length
+      if match_type == "less" then return strlen < len
+      elseif match_type == "greater" then return strlen > len end
+
+      return strlen == len
+    end
   )
 end
 
@@ -185,7 +205,7 @@ end
 -- Number must be greater than the number "n" (chain after "number()")
 ---@param n number Number to compare with
 function Type:greater_than(n)
-  return self:custom("less", function (val) return val > n end)
+  return self:custom("greater", function (val) return val > n end)
 end
 
 -- Make a type optional (allow them to be nil apart from the required type)

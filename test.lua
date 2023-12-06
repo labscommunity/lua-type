@@ -39,7 +39,7 @@ local eithertest = Type:set_name("EitherTest"):either(Type:number(), Type:string
 
 eithertest:assert("true")
 
-local nottest = Type:is_not(Type:string())
+local nottest = Type:is_not(Type:string():length(2))
 
 nottest:assert(2)
 nottest:assert("2")
