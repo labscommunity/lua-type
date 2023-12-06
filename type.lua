@@ -1,6 +1,10 @@
 ---@class Type
 local Type = {
+  -- custom name for the defined type
+  ---@type string|nil
+  name = nil,
   -- list of assertions to perform on any given value
+  ---@type { name: string, validate: fun(val: any): boolean }[]
   conditions = nil
 }
 
@@ -9,7 +13,7 @@ local Type = {
 function Type:assert(val)
   for i, condition in ipairs(self.conditions) do
     if not condition.validate(val) then
-      error("Failed assertion at #" .. i .. ": " .. tostring(val) .. " is not " .. condition.name)
+      self:error("Failed assertion at #" .. i .. ": " .. tostring(val) .. " is not " .. condition.name)
     end
   end
 end
@@ -69,7 +73,7 @@ function Type:keys(t)
     "keys",
     function (val)
       if type(val) ~= "table" then
-        print("Not a valid table:\n" .. tostring(val))
+        self:log("Not a valid table:\n" .. tostring(val))
         return false
       end
 
@@ -78,7 +82,7 @@ function Type:keys(t)
         local success, err = pcall(function () return t:assert(key) end)
 
         if not success then
-          print(err);
+          self:log(err)
           return false
         end
       end
@@ -88,6 +92,11 @@ function Type:keys(t)
   )
 end
 
+-- Type must be array
+function Type:array()
+  return self:table():keys(Type:number())
+end
+
 -- Table's values must be of type t
 ---@param t Type Type to assert the values for
 function Type:values(t)
@@ -95,7 +104,7 @@ function Type:values(t)
     "values",
     function (val)
       if type(val) ~= "table" then
-        print("Not a valid table:\n" .. tostring(val))
+        self:log("Not a valid table:\n" .. tostring(val))
         return false
       end
 
@@ -104,7 +113,7 @@ function Type:values(t)
         local success, err = pcall(function () return t:assert(v) end)
 
         if not success then
-          print(err);
+          self:log(err)
           return false
         end
       end
@@ -124,9 +133,9 @@ function Type:_function()
   return self:type("function")
 end
 
--- Type must be boolean
+-- Type must be nil
 function Type:_nil()
-  return self:type("boolean")
+  return self:type("nil")
 end
 
 -- Value must be the same
@@ -199,21 +208,21 @@ end
 ---@param strict? boolean Only allow the defined keys from the structure, throw error on other keys (false by default)
 function Type:structure(struct, name, strict)
   if type(struct) ~= "table" then
-    error(name .. " is not a valid structure:\n" .. tostring(struct))
+    self:error(name .. " is not a valid structure:\n" .. tostring(struct))
   end
 
   return self:custom(
     name or "structure",
     function (val)
       if type(val) ~= "table" then
-        print("Not a valid structure:\n" .. tostring(val))
+        self:log("Not a valid structure:\n" .. tostring(val))
         return false
       end
 
       -- for each value, validate
       for key, assertion in pairs(struct) do
         if val[key] == nil then
-          print("Missing key \"" .. key .. "\"")
+          self:log("Missing key \"" .. key .. "\"")
           return false
         end
 
@@ -221,7 +230,7 @@ function Type:structure(struct, name, strict)
         local success, err = pcall(function () return assertion:assert(val[key]) end)
 
         if not success then
-          print(err);
+          self:log(err)
           return false
         end
       end
@@ -230,7 +239,7 @@ function Type:structure(struct, name, strict)
       if strict then
         for key, _ in pairs(val) do
           if struct[key] == nil then
-            print("Invalid key in value: \"" .. key .. "\" (strict mode)");
+            self:log("Invalid key in value: \"" .. key .. "\" (strict mode)")
             return false
           end
         end
@@ -239,6 +248,49 @@ function Type:structure(struct, name, strict)
       return true
     end
   )
+end
+
+-- Type has to be either one of the defined assertions
+---@param ... Type Type(s) to assert for
+function Type:either(...)
+  ---@type Type[]
+  local assertions = {...}
+
+  return self:custom(
+    "either",
+    function (val)
+      for _, assertion in ipairs(assertions) do
+        if pcall(function () return assertion:assert(val) end) then
+          return true
+        end
+      end
+
+      self:log("Neither arguments matched")
+      return false
+    end
+  )
+end
+
+-- Set the name of the custom type
+-- This will be used with error logs
+---@param name string Name of the type definition
+function Type:set_name(name)
+  self.name = name
+  return self
+end
+
+-- Log a message
+---@param message any Message to log
+---@private
+function Type:log(message)
+  print("[Type " .. (self.name or tostring(self.__index)) .. "] " .. tostring(message))
+end
+
+-- Throw an error
+---@param message any Message to log
+---@private
+function Type:error(message)
+  error("[Type " .. (self.name or tostring(self.__index)) .. "] " .. tostring(message))
 end
 
 return Type

@@ -34,3 +34,7 @@ local opt = "test"
 opt_type:assert(opt)
 opt = nil
 opt_type:assert(opt)
+
+local eithertest = Type:set_name("EitherTest"):either(Type:number(), Type:string(), Type:table())
+
+eithertest:assert(true)
