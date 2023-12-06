@@ -202,25 +202,25 @@ function Type:optional(t)
   )
 end
 
--- Table must be of structure
----@param struct { [any]: Type }
----@param name? string Name of the structure
----@param strict? boolean Only allow the defined keys from the structure, throw error on other keys (false by default)
-function Type:structure(struct, name, strict)
-  if type(struct) ~= "table" then
-    self:error(name .. " is not a valid structure:\n" .. tostring(struct))
+-- Table must be of object
+---@param obj { [any]: Type }
+---@param name? string Name of the object
+---@param strict? boolean Only allow the defined keys from the object, throw error on other keys (false by default)
+function Type:object(obj, name, strict)
+  if type(obj) ~= "table" then
+    self:error(name .. " is not a valid object:\n" .. tostring(obj))
   end
 
   return self:custom(
-    name or "structure",
+    name or "object",
     function (val)
       if type(val) ~= "table" then
-        self:log("Not a valid structure:\n" .. tostring(val))
+        self:log("Not a valid object:\n" .. tostring(val))
         return false
       end
 
       -- for each value, validate
-      for key, assertion in pairs(struct) do
+      for key, assertion in pairs(obj) do
         if val[key] == nil then
           self:log("Missing key \"" .. key .. "\"")
           return false
@@ -238,7 +238,7 @@ function Type:structure(struct, name, strict)
       -- in strict mode, we do not allow any other keys
       if strict then
         for key, _ in pairs(val) do
-          if struct[key] == nil then
+          if obj[key] == nil then
             self:log("Invalid key in value: \"" .. key .. "\" (strict mode)")
             return false
           end

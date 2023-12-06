@@ -8,10 +8,10 @@ local test = Type:boolean()
 
 test:assert(false)
 
-local user = Type:structure({
+local user = Type:object({
   name = Type:string(),
   age = Type:number():integer(),
-  social = Type:structure({
+  social = Type:object({
     twitter = Type:string()
   })
 }, "User")
