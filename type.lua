@@ -271,6 +271,19 @@ function Type:either(...)
   )
 end
 
+-- Type cannot be the defined assertion (tip: for multiple negated assertions, use Type:either(...))
+---@param t Type Type to NOT assert for
+function Type:is_not(t)
+  return self:custom(
+    "is_not",
+    function (val)
+      local success = pcall(function () return t:assert(val) end)
+
+      return not success
+    end
+  )
+end
+
 -- Set the name of the custom type
 -- This will be used with error logs
 ---@param name string Name of the type definition

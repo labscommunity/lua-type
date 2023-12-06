@@ -37,4 +37,9 @@ opt_type:assert(opt)
 
 local eithertest = Type:set_name("EitherTest"):either(Type:number(), Type:string(), Type:table())
 
-eithertest:assert(true)
+eithertest:assert("true")
+
+local nottest = Type:is_not(Type:string())
+
+nottest:assert(2)
+nottest:assert("2")
