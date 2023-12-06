@@ -4,7 +4,7 @@ local Type = {
   ---@type string|nil
   name = nil,
   -- list of assertions to perform on any given value
-  ---@type { name: string, validate: fun(val: any): boolean }[]
+  ---@type { message: string, validate: fun(val: any): boolean }[]
   conditions = nil
 }
 
@@ -13,18 +13,18 @@ local Type = {
 function Type:assert(val)
   for i, condition in ipairs(self.conditions) do
     if not condition.validate(val) then
-      self:error("Failed assertion at #" .. i .. ": " .. tostring(val) .. " is not " .. condition.name)
+      self:error(condition.message)
     end
   end
 end
 
 -- Add a custom condition/assertion to assert for
----@param name string Name of the assertion
+---@param message string Error message for the assertion
 ---@param assertion fun(val: any): boolean Custom assertion function that is asserted with the provided value
-function Type:custom(name, assertion)
+function Type:custom(message, assertion)
   -- condition to add
   local condition = {
-    name = name,
+    message = message,
     validate = assertion
   }
 
@@ -47,44 +47,48 @@ end
 
 -- Add an assertion for built in types
 ---@param t "nil"|"number"|"string"|"boolean"|"table"|"function"|"thread"|"userdata" Type to assert for
-function Type:type(t)
-  return self:custom(t, function (val) return type(val) == t end)
+---@param message string? Optional assertion error message
+function Type:type(t, message)
+  return self:custom(
+    message or ("Not of type (" .. t .. ")"),
+    function (val) return type(val) == t end
+  )
 end
 
 -- Type must be userdata
-function Type:userdata()
-  return self:type("userdata")
+---@param message string? Optional assertion error message
+function Type:userdata(message)
+  return self:type("userdata", message)
 end
 
 -- Type must be thread
-function Type:thread()
-  return self:type("thread")
+---@param message string? Optional assertion error message
+function Type:thread(message)
+  return self:type("thread", message)
 end
 
 -- Type must be table
-function Type:table()
-  return self:type("table")
+---@param message string? Optional assertion error message
+function Type:table(message)
+  return self:type("table", message)
 end
 
 -- Table's keys must be of type t
 ---@param t Type Type to assert the keys for
-function Type:keys(t)
+---@param message string? Optional assertion error message
+function Type:keys(t, message)
   return self:custom(
-    "keys",
+    message or "Invalid table keys",
     function (val)
       if type(val) ~= "table" then
-        self:log("Not a valid table:\n" .. tostring(val))
         return false
       end
 
       for key, _ in pairs(val) do
         -- check if the assertion throws any errors
-        local success, err = pcall(function () return t:assert(key) end)
+        local success = pcall(function () return t:assert(key) end)
 
-        if not success then
-          self:log(err)
-          return false
-        end
+        if not success then return false end
       end
 
       return true
@@ -93,29 +97,25 @@ function Type:keys(t)
 end
 
 -- Type must be array
-function Type:array()
-  return self:table():keys(Type:number())
+---@param message string? Optional assertion error message
+function Type:array(message)
+  return self:table():keys(Type:number(), message)
 end
 
 -- Table's values must be of type t
 ---@param t Type Type to assert the values for
-function Type:values(t)
+---@param message string? Optional assertion error message
+function Type:values(t, message)
   return self:custom(
-    "values",
+    message or "Invalid table values",
     function (val)
-      if type(val) ~= "table" then
-        self:log("Not a valid table:\n" .. tostring(val))
-        return false
-      end
+      if type(val) ~= "table" then return false end
 
       for _, v in pairs(val) do
         -- check if the assertion throws any errors
-        local success, err = pcall(function () return t:assert(v) end)
+        local success = pcall(function () return t:assert(v) end)
 
-        if not success then
-          self:log(err)
-          return false
-        end
+        if not success then return false end
       end
 
       return true
@@ -124,36 +124,45 @@ function Type:values(t)
 end
 
 -- Type must be boolean
-function Type:boolean()
-  return self:type("boolean")
+---@param message string? Optional assertion error message
+function Type:boolean(message)
+  return self:type("boolean", message)
 end
 
 -- Type must be function
-function Type:_function()
-  return self:type("function")
+---@param message string? Optional assertion error message
+function Type:_function(message)
+  return self:type("function", message)
 end
 
 -- Type must be nil
-function Type:_nil()
-  return self:type("nil")
+---@param message string? Optional assertion error message
+function Type:_nil(message)
+  return self:type("nil", message)
 end
 
 -- Value must be the same
 ---@param val any The value the assertion must be made with
-function Type:is(val)
-  return self:custom("is", function (v) return v == val end)
+---@param message string? Optional assertion error message
+function Type:is(val, message)
+  return self:custom(
+    message or "Value did not match expected value (Type:is(expected))",
+    function (v) return v == val end
+  )
 end
 
 -- Type must be string
-function Type:string()
-  return self:type("string")
+---@param message string? Optional assertion error message
+function Type:string(message)
+  return self:type("string", message)
 end
 
 -- String type must match pattern
 ---@param pattern string Pattern to match
-function Type:match(pattern)
+---@param message string? Optional assertion error message
+function Type:match(pattern, message)
   return self:custom(
-    "match",
+    message or ("String did not match pattern \"" .. pattern .. "\""),
     function (val) return string.match(val, pattern) ~= nil end
   )
 end
@@ -161,9 +170,16 @@ end
 -- String type must be of defined length
 ---@param len number Required length
 ---@param match_type? "less"|"greater" String length should be "less" than or "greater" than the defined length. Leave empty for exact match.
-function Type:length(len, match_type)
+---@param message string? Optional assertion error message
+function Type:length(len, match_type, message)
+  local match_msgs = {
+    less = "String length is not less than " .. len,
+    greater = "String length is not greater than " .. len,
+    default = "String is not of length " .. len
+  }
+
   return self:custom(
-    "length",
+    message or (match_msgs[match_type] or match_msgs.default),
     function (val)
       local strlen = string.len(val)
 
@@ -177,42 +193,64 @@ function Type:length(len, match_type)
 end
 
 -- Type must be a number
-function Type:number()
-  return self:type("number")
+---@param message string? Optional assertion error message
+function Type:number(message)
+  return self:type("number", message)
 end
 
 -- Number must be an integer (chain after "number()")
-function Type:integer()
-  return self:custom("integer", function (val) return val % 1 == 0 end)
+---@param message string? Optional assertion error message
+function Type:integer(message)
+  return self:custom(
+    message or "Number is not an integer",
+    function (val) return val % 1 == 0 end
+  )
 end
 
 -- Number must be even (chain after "number()")
-function Type:even()
-  return self:custom("even", function (val) return val % 2 == 0 end)
+---@param message string? Optional assertion error message
+function Type:even(message)
+  return self:custom(
+    message or "Number is not even",
+    function (val) return val % 2 == 0 end
+  )
 end
 
 -- Number must be odd (chain after "number()")
-function Type:odd()
-  return self:custom("odd", function (val) return val % 2 == 1 end)
+---@param message string? Optional assertion error message
+function Type:odd(message)
+  return self:custom(
+    message or "Number is not odd",
+    function (val) return val % 2 == 1 end
+  )
 end
 
 -- Number must be less than the number "n" (chain after "number()")
 ---@param n number Number to compare with
-function Type:less_than(n)
-  return self:custom("less", function (val) return val < n end)
+---@param message string? Optional assertion error message
+function Type:less_than(n, message)
+  return self:custom(
+    message or ("Number is not less than " .. n),
+    function (val) return val < n end
+  )
 end
 
 -- Number must be greater than the number "n" (chain after "number()")
 ---@param n number Number to compare with
-function Type:greater_than(n)
-  return self:custom("greater", function (val) return val > n end)
+---@param message string? Optional assertion error message
+function Type:greater_than(n, message)
+  return self:custom(
+    message or ("Number is not greater than" .. n),
+    function (val) return val > n end
+  )
 end
 
 -- Make a type optional (allow them to be nil apart from the required type)
 ---@param t Type Type to assert for if the value is not nil
-function Type:optional(t)
+---@param message string? Optional assertion error message
+function Type:optional(t, message)
   return self:custom(
-    "optional",
+    message or "Optional type did not match",
     function (val)
       if val == nil then return true end
 
@@ -224,44 +262,32 @@ end
 
 -- Table must be of object
 ---@param obj { [any]: Type }
----@param name? string Name of the object
 ---@param strict? boolean Only allow the defined keys from the object, throw error on other keys (false by default)
-function Type:object(obj, name, strict)
+---@param message string? Optional assertion error message
+function Type:object(obj, strict, message)
   if type(obj) ~= "table" then
-    self:error(name .. " is not a valid object:\n" .. tostring(obj))
+    self:error("Invalid object structure provided for object assertion (has to be a table):\n" .. tostring(obj))
   end
 
   return self:custom(
-    name or "object",
+    message or ("Not of defined object (" .. tostring(obj) .. ")"),
     function (val)
-      if type(val) ~= "table" then
-        self:log("Not a valid object:\n" .. tostring(val))
-        return false
-      end
+      if type(val) ~= "table" then return false end
 
       -- for each value, validate
       for key, assertion in pairs(obj) do
-        if val[key] == nil then
-          self:log("Missing key \"" .. key .. "\"")
-          return false
-        end
+        if val[key] == nil then return false end
 
         -- check if the assertion throws any errors
-        local success, err = pcall(function () return assertion:assert(val[key]) end)
+        local success = pcall(function () return assertion:assert(val[key]) end)
 
-        if not success then
-          self:log(err)
-          return false
-        end
+        if not success then return false end
       end
 
       -- in strict mode, we do not allow any other keys
       if strict then
         for key, _ in pairs(val) do
-          if obj[key] == nil then
-            self:log("Invalid key in value: \"" .. key .. "\" (strict mode)")
-            return false
-          end
+          if obj[key] == nil then return false end
         end
       end
 
@@ -277,7 +303,7 @@ function Type:either(...)
   local assertions = {...}
 
   return self:custom(
-    "either",
+    "Neither types matched defined in (Type:either(...))",
     function (val)
       for _, assertion in ipairs(assertions) do
         if pcall(function () return assertion:assert(val) end) then
@@ -285,7 +311,6 @@ function Type:either(...)
         end
       end
 
-      self:log("Neither arguments matched")
       return false
     end
   )
@@ -293,9 +318,10 @@ end
 
 -- Type cannot be the defined assertion (tip: for multiple negated assertions, use Type:either(...))
 ---@param t Type Type to NOT assert for
-function Type:is_not(t)
+---@param message string? Optional assertion error message
+function Type:is_not(t, message)
   return self:custom(
-    "is_not",
+    message or "Value incorrectly matched with the assertion provided (Type:is_not())",
     function (val)
       local success = pcall(function () return t:assert(val) end)
 
@@ -310,13 +336,6 @@ end
 function Type:set_name(name)
   self.name = name
   return self
-end
-
--- Log a message
----@param message any Message to log
----@private
-function Type:log(message)
-  print("[Type " .. (self.name or tostring(self.__index)) .. "] " .. tostring(message))
 end
 
 -- Throw an error

@@ -14,7 +14,7 @@ local user = Type:object({
   social = Type:object({
     twitter = Type:string()
   })
-}, "User")
+}):set_name("User")
 
 user:assert({
   name = "test",
@@ -42,4 +42,4 @@ eithertest:assert("true")
 local nottest = Type:is_not(Type:string():length(2))
 
 nottest:assert(2)
-nottest:assert("2")
+nottest:assert("22")
