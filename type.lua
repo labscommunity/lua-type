@@ -1,7 +1,18 @@
 ---@class Type
 local Type = {
+  -- list of assertions to perform on any given value
   conditions = nil
 }
+
+-- Execute an assertion for a given value
+---@param val any Value to assert for
+function Type:assert(val)
+  for i, condition in ipairs(self.conditions) do
+    if not condition.validate(val) then
+      error("Failed assertion at #" .. i .. ": " .. tostring(val) .. " is not " .. condition.name)
+    end
+  end
+end
 
 -- Add a custom condition/assertion to assert for
 ---@param name string Name of the assertion
@@ -52,7 +63,7 @@ function Type:table()
 end
 
 -- Table's keys must be of type t
----@param t Type Type to assert for
+---@param t Type Type to assert the keys for
 function Type:keys(t)
   return self:custom(
     "keys",
@@ -78,6 +89,7 @@ function Type:keys(t)
 end
 
 -- Table's values must be of type t
+---@param t Type Type to assert the values for
 function Type:values(t)
   return self:custom(
     "values",
@@ -167,6 +179,20 @@ function Type:greater_than(n)
   return self:custom("less", function (val) return val > n end)
 end
 
+-- Make a type optional (allow them to be nil apart from the required type)
+---@param t Type Type to assert for if the value is not nil
+function Type:optional(t)
+  return self:custom(
+    "optional",
+    function (val)
+      if val == nil then return true end
+
+      t:assert(val)
+      return true
+    end
+  )
+end
+
 -- Table must be of structure
 ---@param struct { [any]: Type }
 ---@param name? string Name of the structure
@@ -213,16 +239,6 @@ function Type:structure(struct, name, strict)
       return true
     end
   )
-end
-
--- Execute an assertion for a given value
----@param val any Value to assert for
-function Type:assert(val)
-  for i, condition in ipairs(self.conditions) do
-    if not condition.validate(val) then
-      error("Failed assertion at #" .. i .. ": " .. tostring(val) .. " is not " .. condition.name)
-    end
-  end
 end
 
 return Type

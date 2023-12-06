@@ -28,3 +28,9 @@ local table1 = { "test", "haha", "test" }
 local tabl_assert = Type:keys(Type:number()):values(Type:string())
 
 tabl_assert:assert(table1)
+
+local opt_type = Type:optional(Type:string())
+local opt = "test"
+opt_type:assert(opt)
+opt = nil
+opt_type:assert(opt)
