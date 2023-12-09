@@ -19,6 +19,6 @@ dependencies = {
 build = {
   type = "builtin",
   modules = {
-    apricot = "type.lua"
+    type = "type.lua"
   }
 }
