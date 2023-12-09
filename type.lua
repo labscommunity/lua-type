@@ -11,7 +11,7 @@ local Type = {
 -- Execute an assertion for a given value
 ---@param val any Value to assert for
 function Type:assert(val)
-  for i, condition in ipairs(self.conditions) do
+  for _, condition in ipairs(self.conditions) do
     if not condition.validate(val) then
       self:error(condition.message)
     end
