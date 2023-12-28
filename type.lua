@@ -10,10 +10,11 @@ local Type = {
 
 -- Execute an assertion for a given value
 ---@param val any Value to assert for
-function Type:assert(val)
+---@param message string? Optiona message to throw
+function Type:assert(val, message)
   for _, condition in ipairs(self.conditions) do
     if not condition.validate(val) then
-      self:error(condition.message)
+      self:error(message or condition.message)
     end
   end
 end
