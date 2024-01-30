@@ -46,6 +46,29 @@ function Type:custom(message, assertion)
   return self
 end
 
+-- Create a new instance of the existing assertions
+-- that can be independently modified
+function Type:extend()
+  local newInstance = {}
+
+  if self.name then
+    newInstance.name = self.name
+  end
+  newInstance.conditions = {}
+
+  for _, v in ipairs(self.conditions) do
+    table.insert(
+      newInstance.conditions,
+      v
+    )
+  end
+
+  setmetatable(newInstance, self)
+  self.__index = self
+
+  return newInstance
+end
+
 -- Add an assertion for built in types
 ---@param t "nil"|"number"|"string"|"boolean"|"table"|"function"|"thread"|"userdata" Type to assert for
 ---@param message string? Optional assertion error message

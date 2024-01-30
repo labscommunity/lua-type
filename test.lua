@@ -1,8 +1,10 @@
 local Type = require("type")
 
 local address = Type:number()
+local address2 = address:extend():odd()
 
 address:assert(2)
+address2:assert(3)
 
 local test = Type:boolean()
 
@@ -42,4 +44,4 @@ eithertest:assert("true")
 local nottest = Type:is_not(Type:string():length(2))
 
 nottest:assert(2)
-nottest:assert("22")
+nottest:assert(2)
