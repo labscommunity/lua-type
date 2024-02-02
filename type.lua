@@ -300,8 +300,6 @@ function Type:object(obj, strict, message)
 
       -- for each value, validate
       for key, assertion in pairs(obj) do
-        if val[key] == nil then return false end
-
         -- check if the assertion throws any errors
         local success = pcall(function () return assertion:assert(val[key]) end)
 
